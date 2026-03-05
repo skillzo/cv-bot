@@ -9,6 +9,7 @@ app.use((req, _res, next) => {
   next();
 });
 app.use(express.json({ limit: "5mb" }));
+app.use(express.static("public"));
 app.use("/generate", generateRoutes);
 app.use("/ollama", ollamaRoutes);
 

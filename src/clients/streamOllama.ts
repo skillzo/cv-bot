@@ -17,11 +17,15 @@ export async function* askOllamaStream(prompt: string): AsyncGenerator<string> {
   );
 
   const rl = createInterface({ input: res.data, crlfDelay: Infinity });
-  console.log("rl", rl);
   for await (const line of rl) {
     if (!line.trim()) continue;
-    const obj = JSON.parse(line) as { response?: string; done?: boolean };
-    console.log("obj", obj);
+    const obj = JSON.parse(line) as {
+      response?: string;
+      thinking?: string;
+      done?: boolean;
+    };
+
+    if (obj.thinking) yield obj.thinking;
     if (obj.response) yield obj.response;
     if (obj.done) break;
   }

@@ -34,6 +34,21 @@ r.post("/stream", async (req, res) => {
   res.end();
 });
 
+r.get("/chat", async (req, res) => {
+  const prompt = req.query.prompt as string;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  for await (const chunk of askOllamaStream(prompt)) {
+    res.write(`data: ${JSON.stringify({ token: chunk })}\n\n`);
+  }
+
+  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  res.end();
+});
+
 r.post("/prompt", async (req, res) => {
   const jd = `
   We are looking for a Senior Backend Engineer with Node.js,

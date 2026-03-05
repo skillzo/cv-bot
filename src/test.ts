@@ -9,7 +9,7 @@ Postgres and distributed systems experience.
 
   const parsed = await askOllama(jd);
 
-  const match = await matchResume(parsed);
+  const match = await matchResume(parsed as any);
 
   console.log(parsed);
   console.log(match);

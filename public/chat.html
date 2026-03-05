@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ollama Chat Stream</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg: #0f172a;
+      --bg-light: #111827;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --danger: #f97373;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #000 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Inter", sans-serif;
+      color: var(--text);
+      padding: 24px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow:
+        0 20px 60px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(14px);
+    }
+    .header {
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+      background: linear-gradient(
+        90deg,
+        rgba(15, 23, 42, 0.98),
+        rgba(15, 23, 42, 0.9)
+      );
+    }
+    .traffic {
+      display: flex;
+      gap: 6px;
+      margin-right: 6px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #ef4444;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+    }
+    .dot.yellow {
+      background: #f97316;
+    }
+    .dot.green {
+      background: #22c55e;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .badge {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: var(--accent);
+      background: radial-gradient(
+        circle at top left,
+        rgba(56, 189, 248, 0.16),
+        transparent 65%
+      );
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.1fr);
+      gap: 0;
+      min-height: 440px;
+    }
+    @media (max-width: 800px) {
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .left,
+    .right {
+      padding: 18px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .left {
+      border-right: 1px solid rgba(15, 23, 42, 0.9);
+      background: radial-gradient(
+        circle at top left,
+        rgba(56, 189, 248, 0.08),
+        transparent 60%
+      );
+    }
+    .right {
+      background: radial-gradient(
+        circle at top right,
+        rgba(52, 211, 153, 0.08),
+        transparent 60%
+      );
+    }
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .label-row strong {
+      color: var(--text);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .hint {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      resize: vertical;
+      font-family: inherit;
+      outline: none;
+      box-shadow: 0 0 0 1px transparent;
+      transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        background 0.16s ease;
+    }
+    textarea:focus {
+      border-color: rgba(56, 189, 248, 0.75);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.65);
+      background: rgba(15, 23, 42, 1);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .status {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #4b5563;
+    }
+    .status-dot.live {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18);
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      font-size: 13px;
+      padding: 7px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+      background: var(--accent);
+      color: #0b1120;
+      box-shadow:
+        0 8px 20px rgba(56, 189, 248, 0.4),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+      transition:
+        transform 0.08s ease,
+        box-shadow 0.08s ease,
+        background 0.12s ease,
+        opacity 0.12s ease;
+    }
+    button span {
+      font-size: 15px;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding-inline: 10px;
+      border: 1px solid rgba(75, 85, 99, 0.8);
+      box-shadow: none;
+      font-size: 12px;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow:
+        0 10px 26px rgba(56, 189, 248, 0.6),
+        0 0 0 1px rgba(15, 23, 42, 0.95);
+    }
+    button.secondary:hover:not(:disabled) {
+      transform: none;
+      box-shadow: 0 0 0 1px rgba(75, 85, 99, 0.9);
+      color: var(--text);
+    }
+    button:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow:
+        0 5px 14px rgba(56, 189, 248, 0.3),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .output {
+      flex: 1;
+      background: radial-gradient(
+          circle at top left,
+          rgba(56, 189, 248, 0.06),
+          transparent 65%
+        ),
+        radial-gradient(
+          circle at bottom right,
+          rgba(52, 211, 153, 0.06),
+          transparent 65%
+        ),
+        var(--bg-light);
+      border-radius: 12px;
+      border: 1px solid rgba(17, 24, 39, 1);
+      padding: 12px 12px 10px;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      color: var(--text);
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      position: relative;
+    }
+    .output::before {
+      content: "assistant";
+      position: absolute;
+      top: 7px;
+      left: 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+    .output-content {
+      margin-top: 18px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.9);
+    }
+    .error {
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="traffic">
+        <div class="dot"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+      <div class="title">cv-bot / ollama-stream</div>
+      <div class="badge">
+        <div class="badge-dot"></div>
+        Streaming from /ollama/chat
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="left">
+        <div class="label-row">
+          <strong>Prompt</strong>
+          <span class="hint">Enter your instruction and press Send</span>
+        </div>
+        <textarea
+          id="prompt"
+          placeholder="e.g. Draft a concise cover letter for a senior TypeScript engineer role using my CV context."
+        ></textarea>
+        <div class="controls">
+          <div class="status" id="status">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Idle</span>
+          </div>
+          <div class="buttons">
+            <button class="secondary" id="clear-btn" type="button">
+              Clear
+            </button>
+            <button id="send-btn" type="button">
+              <span>●</span>
+              Send &amp; Stream
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="label-row">
+          <strong>Response</strong>
+          <span class="hint">Tokens appear here as they stream</span>
+        </div>
+        <div class="output" id="output">
+          <div class="output-content" id="output-content"></div>
+        </div>
+        <div class="meta-row">
+          <span id="meta-left">No request yet.</span>
+          <span class="pill" id="meta-right">/ollama/chat (SSE)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const promptEl = document.getElementById("prompt");
+      const sendBtn = document.getElementById("send-btn");
+      const clearBtn = document.getElementById("clear-btn");
+      const outputContent = document.getElementById("output-content");
+      const statusDot = document.getElementById("status-dot");
+      const statusText = document.getElementById("status-text");
+      const metaLeft = document.getElementById("meta-left");
+
+      let currentSource = null;
+      let requestCount = 0;
+
+      function setStatus(state, extra) {
+        // state: "idle" | "connecting" | "streaming" | "done" | "error"
+        statusDot.classList.remove("live");
+        statusText.classList.remove("error");
+
+        switch (state) {
+          case "connecting":
+            statusDot.classList.add("live");
+            statusText.textContent = "Connecting…";
+            break;
+          case "streaming":
+            statusDot.classList.add("live");
+            statusText.textContent = "Streaming response…";
+            break;
+          case "done":
+            statusText.textContent = "Completed";
+            break;
+          case "error":
+            statusText.classList.add("error");
+            statusText.textContent = extra || "Error during stream";
+            break;
+          default:
+            statusText.textContent = "Idle";
+        }
+      }
+
+      function setBusy(busy) {
+        sendBtn.disabled = busy;
+        promptEl.disabled = busy;
+      }
+
+      function stopCurrentStream() {
+        if (currentSource) {
+          currentSource.close();
+          currentSource = null;
+        }
+        setBusy(false);
+      }
+
+      function startStream() {
+        const prompt = promptEl.value.trim();
+        if (!prompt) {
+          setStatus("error", "Prompt is empty");
+          return;
+        }
+
+        // Stop any previous stream
+        stopCurrentStream();
+        outputContent.textContent = "";
+        requestCount += 1;
+
+        const url =
+          "/ollama/chat?prompt=" + encodeURIComponent(prompt);
+
+        setBusy(true);
+        setStatus("connecting");
+        metaLeft.textContent = `Request #${requestCount} → GET ${url}`;
+
+        const es = new EventSource(url);
+        currentSource = es;
+
+        es.onopen = function () {
+          setStatus("streaming");
+        };
+
+        es.onmessage = function (event) {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.done) {
+              setStatus("done");
+              stopCurrentStream();
+              return;
+            }
+            if (typeof data.token === "string") {
+              outputContent.textContent += data.token;
+              // Auto-scroll to bottom
+              const out = document.getElementById("output");
+              out.scrollTop = out.scrollHeight;
+            }
+          } catch (err) {
+            console.error("Failed to parse SSE message:", err);
+          }
+        };
+
+        es.onerror = function (err) {
+          console.error("SSE error:", err);
+          setStatus("error", "Connection error");
+          stopCurrentStream();
+        };
+      }
+
+      sendBtn.addEventListener("click", startStream);
+      clearBtn.addEventListener("click", function () {
+        outputContent.textContent = "";
+        metaLeft.textContent = "Cleared response.";
+      });
+
+      promptEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          startStream();
+        }
+      });
+
+      // Initial state
+      setStatus("idle");
+    })();
+  </script>
+</body>
+</html>
