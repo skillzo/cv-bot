@@ -308,6 +308,40 @@
       margin-top: 18px;
     }
 
+    .thinking-card {
+      margin-top: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      border-radius: 10px;
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+      padding: 8px 10px 7px;
+      font-size: 12px;
+      color: #9ca3af;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+    .thinking-card-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: rgba(148, 163, 184, 0.9);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .thinking-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.8);
+      opacity: 0.7;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
+    }
+    .thinking-text {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
     .meta-row {
       display: flex;
       justify-content: space-between;
@@ -376,6 +410,13 @@
         </div>
         <div class="output" id="output">
           <div class="output-content" id="output-content"></div>
+          <div class="thinking-card" id="thinking-card" style="display: none;">
+            <div class="thinking-card-label">
+              <span class="thinking-dot"></span>
+              Thinking
+            </div>
+            <div class="thinking-text" id="thinking-text"></div>
+          </div>
         </div>
         <div class="meta-row">
           <span id="meta-left">No request yet.</span>
@@ -391,6 +432,8 @@
       const sendBtn = document.getElementById("send-btn");
       const clearBtn = document.getElementById("clear-btn");
       const outputContent = document.getElementById("output-content");
+      const thinkingCard = document.getElementById("thinking-card");
+      const thinkingText = document.getElementById("thinking-text");
       const statusDot = document.getElementById("status-dot");
       const statusText = document.getElementById("status-text");
       const metaLeft = document.getElementById("meta-left");
@@ -435,6 +478,7 @@
           currentSource = null;
         }
         setBusy(false);
+        if (thinkingCard) thinkingCard.style.display = "none";
       }
 
       function startStream() {
@@ -447,6 +491,7 @@
         // Stop any previous stream
         stopCurrentStream();
         outputContent.textContent = "";
+        if (thinkingText) thinkingText.textContent = "";
         requestCount += 1;
 
         const url =
@@ -471,11 +516,19 @@
               stopCurrentStream();
               return;
             }
-            if (typeof data.token === "string") {
-              outputContent.textContent += data.token;
-              // Auto-scroll to bottom
-              const out = document.getElementById("output");
-              out.scrollTop = out.scrollHeight;
+            if (typeof data.type === "string" && typeof data.text === "string") {
+              if (data.type === "thinking") {
+                if (thinkingCard && thinkingText) {
+                  thinkingCard.style.display = "block";
+                  thinkingText.textContent += data.text;
+                  const out = document.getElementById("output");
+                  out.scrollTop = out.scrollHeight;
+                }
+              } else if (data.type === "response") {
+                outputContent.textContent += data.text;
+                const out = document.getElementById("output");
+                out.scrollTop = out.scrollHeight;
+              }
             }
           } catch (err) {
             console.error("Failed to parse SSE message:", err);
