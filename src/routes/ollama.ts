@@ -19,7 +19,8 @@ r.post("/stream", async (req, res) => {
 
   try {
     for await (const chunk of askOllamaStream(prompt)) {
-      res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+      // Preserve legacy shape: always send plain text for existing clients
+      res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
       if (
         "flush" in res &&
         typeof (res as { flush?: () => void }).flush === "function"
@@ -42,7 +43,12 @@ r.get("/chat", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   for await (const chunk of askOllamaStream(prompt)) {
-    res.write(`data: ${JSON.stringify({ token: chunk })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        type: chunk.type,
+        text: chunk.text,
+      })}\n\n`,
+    );
   }
 
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);

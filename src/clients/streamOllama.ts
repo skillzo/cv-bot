@@ -4,8 +4,15 @@ import { createInterface } from "readline";
 const OLLAMA_URL = "http://localhost:11434/api/generate";
 const MODEL = "qwen3:14b";
 
-/** Yields each text chunk from Ollama (includes "thinking" then the answer). */
-export async function* askOllamaStream(prompt: string): AsyncGenerator<string> {
+export type StreamChunk = {
+  type: "thinking" | "response";
+  text: string;
+};
+
+/** Yields each text chunk from Ollama, tagged as thinking/response. */
+export async function* askOllamaStream(
+  prompt: string,
+): AsyncGenerator<StreamChunk> {
   const res = await axios.post(
     OLLAMA_URL,
     {
@@ -25,8 +32,12 @@ export async function* askOllamaStream(prompt: string): AsyncGenerator<string> {
       done?: boolean;
     };
 
-    if (obj.thinking) yield obj.thinking;
-    if (obj.response) yield obj.response;
+    if (obj.thinking) {
+      yield { type: "thinking", text: obj.thinking };
+    }
+    if (obj.response) {
+      yield { type: "response", text: obj.response };
+    }
     if (obj.done) break;
   }
 }
